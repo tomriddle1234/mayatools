@@ -46,8 +46,8 @@ class simpleModelPreviewer(object):
                                         text="Please select your model file",
                                         buttonLabel="Load Model",
                                         width=200,
-                                        buttonCommand=self.load_model,
-                                        textChangedCommand=self.on_input_model_path_text_changed)
+                                        buttonCommand=self.load_model)
+        # textChangedCommand=self.on_input_model_path_text_changed)
 
         self.button2 = cmds.button("Reload", enable=False, c=self.reload_model)
 
@@ -157,15 +157,15 @@ class simpleModelPreviewer(object):
         else:
             print ("Error, model file name is empty.")
 
-    def on_input_model_path_text_changed(self, *args):
-        self.inputModelFilename = cmds.textFieldButtonGrp(self.button1, query=True, text=True)
-        print self.inputModelFilename
-        if self.inputModelFilename != "":
-            cmds.textFieldButtonGrp(self.button7, text=os.path.dirname(self.inputModelFilename), e=True)
-            cmds.button(self.button2, e=True, enable=True)
-            self.reload_model(self.inputModelFilename)
-        else:
-            print ("Error, model file name is empty.")
+    # def on_input_model_path_text_changed(self, *args):
+    # self.inputModelFilename = cmds.textFieldButtonGrp(self.button1, query=True, text=True)
+    #     print self.inputModelFilename
+    #     if self.inputModelFilename != "":
+    #         cmds.textFieldButtonGrp(self.button7, text=os.path.dirname(self.inputModelFilename), e=True)
+    #         cmds.button(self.button2, e=True, enable=True)
+    #         self.reload_model(self.inputModelFilename)
+    #     else:
+    #         print ("Error, model file name is empty.")
 
     def reload_model(self, *args):
         # check self.inputModelFilename
@@ -229,7 +229,7 @@ class simpleModelPreviewer(object):
         cmds.select(None)
 
         # delete the light group created by this plugin
-        if "SMP_Lights" in cmds.ls(type='group'):
+        if "SMP_Lights" in cmds.ls("SMP_Lights"):
             cmds.select("SMP_Lights")
             cmds.delete()
         #hide all lights
@@ -269,20 +269,20 @@ class simpleModelPreviewer(object):
             cmds.select("SMP_Camera")
             cmds.delete()
         newcam = cmds.camera()
+        # it appears SMP_CameraShape was modified automatically
         cmds.rename(newcam[0], "SMP_Camera")
-        cmds.rename(newcam[1], "SMP_CameraShape")
 
         cmds.select(self.allGeometry)
         #fit camera, factor of 0.5 means the geometry will occupy about half of the fov
-        cmds.viewFit(newcam[1], an=False, f=0.5)
-        cmds.select(newcam[0])
+        cmds.viewFit("SMP_CameraShape", an=False, f=0.5)
+        cmds.select("SMP_Camera")
         cmds.rotate(-20, 0, 0, p=[0, 0, 0], a=True)
 
         #move camera pivot to origin
-        cmds.move(0, 0, 0, str(newcam[0] + ".scalePivot"), str(newcam[0] + ".rotatePivot"), a=True)
+        cmds.move(0, 0, 0, str("SMP_Camera" + ".scalePivot"), str("SMP_Camera" + ".rotatePivot"), a=True)
         #create an expression for camera motion
         angleStepPerFrame = str(360.0 / self.totalFramenumber)
-        expr = "SMP_Camera.rotateY=(time-1) * " + angleStepPerFrame
+        expr = "SMP_Camera.rotateY=(frame-1) * " + angleStepPerFrame
         self.camera_motion_expression = cmds.expression(n="SMP_Camera_Motion_Expression",
                                                         s=expr)
 
