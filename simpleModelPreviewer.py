@@ -19,6 +19,7 @@ class simpleModelPreviewer(object):
         self.totalFramenumber = int(self.frameLength * self.animationFPS)
 
         self.outputFormat = "png"
+        self.outputFormatID = 32
 
         # config maya unit
         cmds.currentUnit(angle='degree', time='film')
@@ -79,6 +80,13 @@ class simpleModelPreviewer(object):
         cmds.separator()
         cmds.text("Material Options")
         cmds.separator()
+
+        self.loadMaterialField = cmds.textFieldButtonGrp(label="Material File Path:",
+                                                         text="Please select your material file",
+                                                         buttonLabel="Load Material",
+                                                         width=200,
+                                                         buttonCommand=self.load_material)
+
         cmds.rowColumnLayout(numberOfColumns=2,
                              columnWidth=[(1, 200), (2, 200)],
                              cal=[(1, "right"), (2, "center")],
@@ -116,7 +124,7 @@ class simpleModelPreviewer(object):
         self.outputFormatOption = cmds.optionMenu(changeCommand=self.on_output_format_change)
         cmds.menuItem(label="png")
         cmds.menuItem(label="tif")
-        cmds.menuItem(label="openEXR")
+        cmds.menuItem(label="tga")
 
         cmds.text("Start Frame:")
         self.startFrameField = cmds.intField(minValue=1, value=1, changeCommand=self.on_start_frame_change)
@@ -152,20 +160,32 @@ class simpleModelPreviewer(object):
         if self.inputModelFilename != "":
             cmds.textFieldButtonGrp(self.button1, text=self.inputModelFilename, e=True)
             cmds.textFieldButtonGrp(self.button7, text=os.path.dirname(self.inputModelFilename), e=True)
+            # set project path to input model location
+            # cmds.workspace(os.path.dirname(self.inputModelFilename), o=True)
             cmds.button(self.button2, e=True, enable=True)
             self.reload_model(self.inputModelFilename)
         else:
             print ("Error, model file name is empty.")
 
-    # def on_input_model_path_text_changed(self, *args):
-    # self.inputModelFilename = cmds.textFieldButtonGrp(self.button1, query=True, text=True)
-    #     print self.inputModelFilename
-    #     if self.inputModelFilename != "":
-    #         cmds.textFieldButtonGrp(self.button7, text=os.path.dirname(self.inputModelFilename), e=True)
-    #         cmds.button(self.button2, e=True, enable=True)
-    #         self.reload_model(self.inputModelFilename)
-    #     else:
-    #         print ("Error, model file name is empty.")
+    def load_material(self, *args):
+        filter = "All Files (*.*);;Maya Ascii (*.ma);;Maya Binary (*.mb)"
+        self.load_material_dialog = cmds.fileDialog2(fileFilter=filter, dialogStyle=1, fm=1)
+
+        if self.load_material_dialog is None:
+            return
+        if not (len(self.load_material_dialog)):
+            return
+
+        self.inputMaterialFilename = self.load_material_dialog[0]
+        print self.inputMaterialFilename
+        if self.inputModelFilename != "":
+            cmds.textFieldButtonGrp(self.loadMaterialField, text=self.inputMaterialFilename, e=True)
+            cmds.file(self.loadMaterialField, i=True)
+            if 'rock' in cmds.ls(materials=True):
+                print ("Materials are loaded.")
+        else:
+            print ("Error, material file name is empty.")
+
 
     def reload_model(self, *args):
         # check self.inputModelFilename
@@ -317,13 +337,51 @@ class simpleModelPreviewer(object):
         print(self.animationFPS)
         self.totalFramenumber = int(self.frameLength * self.animationFPS)
         self.adjust_camera()
-        
+
+
+    # def create_materials(self):
+    # #create a shader
+    #     glass_shader = cmds.shadingNode("glass",asShader=True)
+    #     cmds.setAttr ("glass.eccentricity", 0.385)
+    #     #a file texture node
+    #     file_node=cmds.shadingNode("file",asTexture=True)
+    #     # a shading group
+    #     shading_group= cmds.sets(renderable=True,noSurfaceShader=True,empty=True)
+    #     #connect shader to sg surface shader
+    #     cmds.connectAttr('%s.outColor' %shader ,'%s.surfaceShader' %shading_group)
+    #     #connect file texture node to shader's color
+    #     cmds.connectAttr('%s.outColor' %file_node, '%s.color' %shader)
+    #
+    #
+    #     #create a shader
+    #     shader=cmds.shadingNode("lambert",asShader=True, n='Red')
+    #     #a file texture node
+    #     file_node=cmds.shadingNode("file",asTexture=True)
+    #     # defines location where texture is
+    #     file = ("textures"+ "/" +"red.jpg")
+    #     # a shading group
+    #     shading_group= cmds.sets(renderable=True,noSurfaceShader=True,empty=True)
+    #     cmds.setAttr( 'file'+ '1' +'.fileTextureName', file, type = "string")
+    #     #connect shader to sg surface shader
+    #     cmds.connectAttr('%s.outColor' %shader ,'%s.surfaceShader' %shading_group)
+    #     #connect file texture node to shader's color
+    #     cmds.connectAttr('%s.outColor' %file_node,'%s.color' %shader)
+
     def config_model_material(self, *args):
-        pass
-        
+        # must select geometery to assigne the material
+        if not cmds.ls(sl=True):
+            print("Please select geometry to assign material")
+            return
+
+        self.currentMaterial = cmds.optionMenu(self.materialOption, query=True, value=True)
+        for i in cmds.ls(sl=True):
+            cmds.select(i)
+            cmds.sets(e=True, forceElement=self.currentMaterial + 'SG')
+
     def config_output_path(self, *args):
         self.output_path_dialog = cmds.fileDialog2(dir=os.path.dirname(self.inputModelFilename), dialogStyle=2, fm=3)
         self.renderOutputFilePath = self.output_path_dialog[0]
+        self.renderOutputFilePath = os.path.join(self.renderOutputFilePath, 'smp_render')
         cmds.textFieldButtonGrp(self.button7, text=self.renderOutputFilePath, e=True)
 
     def on_output_path_text_changed(self, *args):
@@ -332,6 +390,16 @@ class simpleModelPreviewer(object):
     def on_output_format_change(self, *arg):
         self.outputFormat = cmds.optionMenu(self.outputFormatOption, query=True, value=True)
         print (self.outputFormat)
+
+        if self.outputFormat == "png":
+            self.outputFormatID = 32
+        elif self.outputFormat == "tif":
+            self.outputFormatID = 3
+        elif self.outputFormat == "tga":
+            self.outputFormatID = 19
+        else:
+            print ("Using unsupported file format")
+
 
     def on_start_frame_change(self, *arg):
         self.startFrame = cmds.intField(self.startFrameField, query=True, value=True)
@@ -348,8 +416,42 @@ class simpleModelPreviewer(object):
     def on_output_height_change(self, *arg):
         self.outputHeight = cmds.intField(self.outputHeightField, query=True, value=True)
         print(self.outputHeight)
+
     def renderOutput(self):
-        pass
+        # Unlock the render globals' current renderer attribute
+        cmds.setAttr("defaultRenderGlobals.currentRenderer", l=False)
+
+        # Sets the current renderer to maya software
+        cmds.setAttr("defaultRenderGlobals.currentRenderer", "mayaSoftware", type="string")
+
+        # Set renderable camera
+        cameralist = cmds.listCameras()
+        for i in cameralist:
+            cmds.setAttr(i + "Shape.renderable", 0)
+        cmds.setAttr("SMP_CameraShape.renderable", 1)
+        # Set render bg color
+        cmds.setAttr("SMP_CameraShape.backgroundColor", 0.451, 0.451, 0.451, type="double3")
+        # Set output format
+        cmds.setAttr("defaultRenderGlobals.imageFormat", self.outputFormatID)
+
+        # Set output file path
+        cmds.workspace(fr=["images", self.renderOutputFilePath])
+
+        # Set start and end frame
+        cmds.setAttr("defaultRenderGlobals.endFrame", self.startFrame)
+        cmds.setAttr("defaultRenderGlobals.endFrame", self.endFrame)
+
+        # Set resolution
+        cmds.select("defaultRenderGlobals")
+        cmds.setAttr("defaultResolution.width", self.outputWidth)
+        cmds.setAttr("defaultResolution.height", self.outputHeight)
+
+        # Set High quality
+        cmds.setAttr("defaultRenderQuality.edgeAntiAliasing", 1)
+        cmds.setAttr("defaultRenderQuality.enableRaytracing", 1)
+        cmds.setAttr("defaultRenderQuality.reflections", 2)
+
+        #
 
 
 b_cls = simpleModelPreviewer()
