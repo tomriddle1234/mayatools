@@ -37,7 +37,8 @@ class simpleModelPreviewer(object):
 
         self.outputWidth = 720
         self.outputHeight = 576
-        self.aspectRatio = 1.0
+        self.deviceAspectRatio = 720.0 / 576.0
+        self.pixelAspectRatio = 1.0
 
         self.outputFormat = "png"
         self.outputFormatID = 32
@@ -434,13 +435,17 @@ class simpleModelPreviewer(object):
         # Sets the current renderer to maya software
         cmds.setAttr("defaultRenderGlobals.currentRenderer", "mayaSoftware", type="string")
 
+
+        # Set render bg color
+        cmds.setAttr("SMP_CameraShape.backgroundColor", 0.451, 0.451, 0.451)
+        # Set camera aspect ratio
+        cmds.setAttr("SMP_CameraShape.cameraAperture", 1.181 / 720.0 * self.outputWidth, 0.945)
         # Set renderable camera
         cameralist = cmds.listCameras()
         for i in cameralist:
             cmds.setAttr(i + "Shape.renderable", 0)
         cmds.setAttr("SMP_CameraShape.renderable", 1)
-        # Set render bg color
-        cmds.setAttr("SMP_CameraShape.backgroundColor", 0.451, 0.451, 0.451, type="double3")
+
         # Set output format
         cmds.setAttr("defaultRenderGlobals.imageFormat", self.outputFormatID)
 
@@ -467,8 +472,12 @@ class simpleModelPreviewer(object):
         cmds.select("defaultRenderGlobals")
         cmds.setAttr("defaultResolution.width", self.outputWidth)
         cmds.setAttr("defaultResolution.height", self.outputHeight)
+
         # Set aspect Ratio
-        cmds.setAttr("defaultResolution.deviceAspectRatio", self.aspectRatio)
+        cmds.setAttr("defaultResolution.aspectLock", 1)
+        cmds.setAttr("defaultResolution.pixelAspect", self.pixelAspectRatio)
+        cmds.setAttr("defaultResolution.deviceAspectRatio", self.deviceAspectRatio)
+
 
         # Set High quality
         cmds.setAttr("defaultRenderQuality.edgeAntiAliasing", 1)
