@@ -1,6 +1,18 @@
+# Title: Simple Model Previewer
+# Date: Last Modified 6th, Mar, 2015
+# Author: Jianming Guo
+# Description:  This is a model preview plugin for baseFX's test.
+# Points to mention:
+# 1. It sets the imported meshes as whole to the origin automatically.
+#   2. There is a simple simulated skylight set created from directional lights
+#   3. After load the meshes from a file, single click of rendering button will start the batch rendering
+
+
+
 import os
 
 import maya.cmds as cmds
+import maya.mel
 
 
 class simpleModelPreviewer(object):
@@ -13,10 +25,17 @@ class simpleModelPreviewer(object):
 
         self.meshList = []
 
+        self.materialStrList = ["rock", "plastic", "glass", "wood"]
+
         self.frameLength = 60.0
         self.animationFPS = 24
 
         self.totalFramenumber = int(self.frameLength * self.animationFPS)
+        self.startFrame = 1
+        self.endFrame = self.totalFramenumber
+
+        self.outputWidth = 720
+        self.outputHeight = 576
 
         self.outputFormat = "png"
         self.outputFormatID = 32
@@ -94,10 +113,11 @@ class simpleModelPreviewer(object):
                              rs=[(1, 5), (2, 5)])
 
         self.materialOption = cmds.optionMenu()
-        cmds.menuItem(label="Stone")
-        cmds.menuItem(label="Plastic")
-        cmds.menuItem(label="Glass")
-        cmds.menuItem(label="Wood")
+        cmds.menuItem(label="rock")
+        cmds.menuItem(label="plastic")
+        cmds.menuItem(label="glass")
+        cmds.menuItem(label="wood")
+
         self.button6 = cmds.button("Assign Material", c=self.config_model_material)
 
         cmds.setParent("..")
@@ -133,9 +153,11 @@ class simpleModelPreviewer(object):
                                            changeCommand=self.on_end_frame_change)
 
         cmds.text("Output Width:")
-        self.outputWidthField = cmds.intField(minValue=0, value=720, changeCommand=self.on_output_width_change)
+        self.outputWidthField = cmds.intField(minValue=0, value=self.outputWidth,
+                                              changeCommand=self.on_output_width_change)
         cmds.text("OutputHeight:")
-        self.outputHeightField = cmds.intField(minValue=0, value=576, changeCommand=self.on_output_height_change)
+        self.outputHeightField = cmds.intField(minValue=0, value=self.outputHeight,
+                                               changeCommand=self.on_output_height_change)
 
         cmds.setParent("..")
         cmds.separator()
@@ -161,7 +183,7 @@ class simpleModelPreviewer(object):
             cmds.textFieldButtonGrp(self.button1, text=self.inputModelFilename, e=True)
             cmds.textFieldButtonGrp(self.button7, text=os.path.dirname(self.inputModelFilename), e=True)
             # set project path to input model location
-            # cmds.workspace(os.path.dirname(self.inputModelFilename), o=True)
+            cmds.workspace(os.path.dirname(self.inputModelFilename), o=True)
             cmds.button(self.button2, e=True, enable=True)
             self.reload_model(self.inputModelFilename)
         else:
@@ -180,7 +202,16 @@ class simpleModelPreviewer(object):
         print self.inputMaterialFilename
         if self.inputModelFilename != "":
             cmds.textFieldButtonGrp(self.loadMaterialField, text=self.inputMaterialFilename, e=True)
-            cmds.file(self.loadMaterialField, i=True)
+            cmds.file(self.inputMaterialFilename, i=True)
+
+            # create SG
+            for i in self.materialStrList:
+                cmds.sets(empty=True, renderable=True,
+                          noSurfaceShader=True, name=i + 'SG')
+                attA = i + '.outColor'
+                attB = i + 'SG.surfaceShader'
+                cmds.connectAttr(attA, attB, force=True)
+
             if 'rock' in cmds.ls(materials=True):
                 print ("Materials are loaded.")
         else:
@@ -210,6 +241,7 @@ class simpleModelPreviewer(object):
             print ("Loading %s..." % self.inputModelFilename)
             try:
                 cmds.file(self.inputModelFilename, i=True)
+                print ("Loading is done.")
             except:
                 print ("Error, unable to load file %s." % self.inputModelFilename)
                 return
@@ -306,6 +338,9 @@ class simpleModelPreviewer(object):
         self.camera_motion_expression = cmds.expression(n="SMP_Camera_Motion_Expression",
                                                         s=expr)
 
+        # adjust play bar
+        cmds.playbackOptions(min=self.startFrame, max=self.endFrame)
+
     def adjust_camera(self):
         """
         Cause the options like frame length can change, so must update the expression here
@@ -325,7 +360,6 @@ class simpleModelPreviewer(object):
         self.camera_motion_expression = cmds.expression(n="SMP_Camera_Motion_Expression",
                                                         s=expr)
 
-
     def config_animation_length(self, *args):
         self.frameLength = cmds.floatField(self.frameLengthField, query=True, value=True)
         print(self.frameLength)
@@ -338,35 +372,6 @@ class simpleModelPreviewer(object):
         self.totalFramenumber = int(self.frameLength * self.animationFPS)
         self.adjust_camera()
 
-
-    # def create_materials(self):
-    # #create a shader
-    #     glass_shader = cmds.shadingNode("glass",asShader=True)
-    #     cmds.setAttr ("glass.eccentricity", 0.385)
-    #     #a file texture node
-    #     file_node=cmds.shadingNode("file",asTexture=True)
-    #     # a shading group
-    #     shading_group= cmds.sets(renderable=True,noSurfaceShader=True,empty=True)
-    #     #connect shader to sg surface shader
-    #     cmds.connectAttr('%s.outColor' %shader ,'%s.surfaceShader' %shading_group)
-    #     #connect file texture node to shader's color
-    #     cmds.connectAttr('%s.outColor' %file_node, '%s.color' %shader)
-    #
-    #
-    #     #create a shader
-    #     shader=cmds.shadingNode("lambert",asShader=True, n='Red')
-    #     #a file texture node
-    #     file_node=cmds.shadingNode("file",asTexture=True)
-    #     # defines location where texture is
-    #     file = ("textures"+ "/" +"red.jpg")
-    #     # a shading group
-    #     shading_group= cmds.sets(renderable=True,noSurfaceShader=True,empty=True)
-    #     cmds.setAttr( 'file'+ '1' +'.fileTextureName', file, type = "string")
-    #     #connect shader to sg surface shader
-    #     cmds.connectAttr('%s.outColor' %shader ,'%s.surfaceShader' %shading_group)
-    #     #connect file texture node to shader's color
-    #     cmds.connectAttr('%s.outColor' %file_node,'%s.color' %shader)
-
     def config_model_material(self, *args):
         # must select geometery to assigne the material
         if not cmds.ls(sl=True):
@@ -376,7 +381,8 @@ class simpleModelPreviewer(object):
         self.currentMaterial = cmds.optionMenu(self.materialOption, query=True, value=True)
         for i in cmds.ls(sl=True):
             cmds.select(i)
-            cmds.sets(e=True, forceElement=self.currentMaterial + 'SG')
+
+            cmds.sets(i, e=True, forceElement=self.currentMaterial + 'SG')
 
     def config_output_path(self, *args):
         self.output_path_dialog = cmds.fileDialog2(dir=os.path.dirname(self.inputModelFilename), dialogStyle=2, fm=3)
@@ -404,10 +410,12 @@ class simpleModelPreviewer(object):
     def on_start_frame_change(self, *arg):
         self.startFrame = cmds.intField(self.startFrameField, query=True, value=True)
         print(self.startFrame)
+        cmds.playbackOptions(min=self.startFrame, max=self.endFrame)
 
     def on_end_frame_change(self, *arg):
         self.endFrame = cmds.intField(self.endFrameField, query=True, value=True)
         print(self.endFrame)
+        cmds.playbackOptions(min=self.startFrame, max=self.endFrame)
 
     def on_output_width_change(self, *arg):
         self.outputWidth = cmds.intField(self.outputWidthField, query=True, value=True)
@@ -417,7 +425,7 @@ class simpleModelPreviewer(object):
         self.outputHeight = cmds.intField(self.outputHeightField, query=True, value=True)
         print(self.outputHeight)
 
-    def renderOutput(self):
+    def renderOutput(self, *args):
         # Unlock the render globals' current renderer attribute
         cmds.setAttr("defaultRenderGlobals.currentRenderer", l=False)
 
@@ -435,10 +443,20 @@ class simpleModelPreviewer(object):
         cmds.setAttr("defaultRenderGlobals.imageFormat", self.outputFormatID)
 
         # Set output file path
-        cmds.workspace(fr=["images", self.renderOutputFilePath])
+        # cmds.workspace(fr=["images", self.renderOutputFilePath])
+        # cmds.workspace(u=True)
+        # cmds.workspace(s=True)
+        # cmds.file(s=True)
+
+
+        cmds.setAttr("defaultRenderGlobals.outFormatControl", 0)
+        cmds.setAttr("defaultRenderGlobals.animation", 1)
+        cmds.setAttr("defaultRenderGlobals.putFrameBeforeExt", 1)
+        cmds.setAttr("defaultRenderGlobals.extensionPadding", 4)
+        cmds.setAttr("defaultRenderGlobals.periodInExt", 1)
 
         # Set start and end frame
-        cmds.setAttr("defaultRenderGlobals.endFrame", self.startFrame)
+        cmds.setAttr("defaultRenderGlobals.startFrame", self.startFrame)
         cmds.setAttr("defaultRenderGlobals.endFrame", self.endFrame)
 
         # Set resolution
@@ -451,8 +469,18 @@ class simpleModelPreviewer(object):
         cmds.setAttr("defaultRenderQuality.enableRaytracing", 1)
         cmds.setAttr("defaultRenderQuality.reflections", 2)
 
-        #
+        # render! somehow cmds.batchRender() refuse to work
+        print("Start Batch Rendering.")
+        maya.mel.eval("mayaBatchRender();")
+        print("Batch Rendering in SMP is done.")
+
+        # change workspace back
+        # cmds.workspace(fr=[self.renderOutputFilePath, "images"])
+
+    def on_cancel_batch_render(self, *args):
+        # this never worked in the test. Please use maya menu instead for this function.
+        pass
 
 
-b_cls = simpleModelPreviewer()
-b_cls.show()
+smp = simpleModelPreviewer()
+smp.show()
