@@ -6,6 +6,7 @@
 # 1. It sets the imported meshes as whole to the origin automatically.
 #   2. There is a simple simulated skylight set created from directional lights
 #   3. After load the meshes from a file, single click of rendering button will start the batch rendering
+#   4. To use the materials, user must load the material.ma file attached
 
 
 
@@ -36,6 +37,7 @@ class simpleModelPreviewer(object):
 
         self.outputWidth = 720
         self.outputHeight = 576
+        self.aspectRatio = 1.0
 
         self.outputFormat = "png"
         self.outputFormatID = 32
@@ -299,12 +301,12 @@ class simpleModelPreviewer(object):
         midAngle = 0.0
         botAngle = -75.0
         #this formula gives the unit light intensity
-        generalIntensity = 1 / (360.0 / angleStep * 3) * 3
+        generalIntensity = 1 / (360.0 / angleStep * 3) * 1.5
         #create circles of lights in a loop
         angle = 0.0
         while (angle < 360.0):
             topLayer.append(cmds.directionalLight(intensity=generalIntensity, rotation=(topAngle, angle, 0)))
-            midLayer.append(cmds.directionalLight(intensity=generalIntensity * 4, rotation=(midAngle, angle, 0)))
+            midLayer.append(cmds.directionalLight(intensity=generalIntensity * 2, rotation=(midAngle, angle, 0)))
             botLayer.append(cmds.directionalLight(intensity=generalIntensity, rotation=(botAngle, angle, 0)))
             angle += angleStep
         #add the top light
@@ -459,10 +461,14 @@ class simpleModelPreviewer(object):
         cmds.setAttr("defaultRenderGlobals.startFrame", self.startFrame)
         cmds.setAttr("defaultRenderGlobals.endFrame", self.endFrame)
 
+
+
         # Set resolution
         cmds.select("defaultRenderGlobals")
         cmds.setAttr("defaultResolution.width", self.outputWidth)
         cmds.setAttr("defaultResolution.height", self.outputHeight)
+        # Set aspect Ratio
+        cmds.setAttr("defaultResolution.deviceAspectRatio", self.aspectRatio)
 
         # Set High quality
         cmds.setAttr("defaultRenderQuality.edgeAntiAliasing", 1)
