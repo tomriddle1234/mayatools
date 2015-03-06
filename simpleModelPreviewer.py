@@ -1,13 +1,15 @@
 # Title: Simple Model Previewer
 # Date: Last Modified 6th, Mar, 2015
 # Author: Jianming Guo
-# Description:  This is a model preview plugin for baseFX's test.
+# Email: jianming[dot]tom[at]gmail[dot]com
+# Description:  This is a model preview plugin for baseFX's test. Tested under Maya 2014 x64.
+# License: GPL v3
 # Points to mention:
-# 1. It sets the imported meshes as whole to the origin automatically.
-#   2. There is a simple simulated skylight set created from directional lights
-#   3. After load the meshes from a file, single click of rendering button will start the batch rendering
-#   4. To use the materials, user must load the material.ma file attached
-
+# 1. Right after load the geometry, this plugin moves the imported geometry root parents as a whole to the origin automatically.
+# 2. This plugin automatically sets a simple simulated skylight configuration created from multiple directional lights.
+# 3. After load the geometry from a file, one single click of rendering button will start the batch rendering on the automatically created camera motion with the default configuration
+# 4. To use the materials, user must manually load the material.ma file attached
+# 5. Latest version of this code can be found at https://github.com/tomriddle1234/mayatools/
 
 
 import os
@@ -66,10 +68,11 @@ class simpleModelPreviewer(object):
         cmds.columnLayout(adjustableColumn=True, columnAlign="left", rowSpacing=5)
 
         self.button1 = cmds.textFieldButtonGrp(label="File Path:",
-                                        text="Please select your model file",
-                                        buttonLabel="Load Model",
-                                        width=200,
-                                        buttonCommand=self.load_model)
+                                               text="Please select your model file",
+                                               buttonLabel="Load Model",
+                                               width=200,
+                                               buttonCommand=self.load_model)
+        # currently user should not type the file path manually
         # textChangedCommand=self.on_input_model_path_text_changed)
 
         self.button2 = cmds.button("Reload", enable=False, c=self.reload_model)
@@ -135,7 +138,6 @@ class simpleModelPreviewer(object):
                                                width=200,
                                                buttonCommand=self.config_output_path,
                                                textChangedCommand=self.on_output_path_text_changed)
-
 
         cmds.rowColumnLayout(numberOfColumns=2,
                              columnWidth=[(1, 200), (2, 200)],
@@ -224,7 +226,7 @@ class simpleModelPreviewer(object):
     def reload_model(self, *args):
         # check self.inputModelFilename
         if self.inputModelFilename:
-            #check if scene is empty or show a dialog
+            # check if scene is empty or show a dialog
             currentMeshList = cmds.ls(geometry=True)
             if len(currentMeshList) > 0:
                 print ("Warning, current scene has other mesh objects:")
@@ -270,7 +272,7 @@ class simpleModelPreviewer(object):
                     allRoot.append(objIter[0])
                     break
                 objIter = parent
-        #make root objects be unique in the container
+        # make root objects be unique in the container
         allRoot = set(allRoot)
         allRoot = list(allRoot)
         #select all the root objects
@@ -328,7 +330,7 @@ class simpleModelPreviewer(object):
         cmds.rename(newcam[0], "SMP_Camera")
 
         cmds.select(self.allGeometry)
-        #fit camera, factor of 0.5 means the geometry will occupy about half of the fov
+        # fit camera, factor of 0.5 means the geometry will occupy about half of the fov
         cmds.viewFit("SMP_CameraShape", an=False, f=0.5)
         cmds.select("SMP_Camera")
         cmds.rotate(-20, 0, 0, p=[0, 0, 0], a=True)
@@ -347,7 +349,6 @@ class simpleModelPreviewer(object):
     def adjust_camera(self):
         """
         Cause the options like frame length can change, so must update the expression here
-        :return:
         """
         cmds.select(self.allGeometry)
         # fit camera, factor of 0.5 means the geometry will occupy about half of the fov
@@ -355,13 +356,15 @@ class simpleModelPreviewer(object):
         cmds.select("SMP_Camera")
         cmds.rotate(-20, 0, 0, p=[0, 0, 0], a=True)
 
-        #move camera pivot to origin
+        # move camera pivot to origin
         cmds.move(0, 0, 0, str("SMP_Camera" + ".scalePivot"), str("SMP_Camera" + ".rotatePivot"), a=True)
         #create an expression for camera motion
         angleStepPerFrame = str(360.0 / self.totalFramenumber)
         expr = "SMP_Camera.rotateY=(time-1) * " + angleStepPerFrame
         self.camera_motion_expression = cmds.expression(n="SMP_Camera_Motion_Expression",
                                                         s=expr)
+        # adjust play bar
+        cmds.playbackOptions(min=self.startFrame, max=self.endFrame)
 
     def config_animation_length(self, *args):
         self.frameLength = cmds.floatField(self.frameLengthField, query=True, value=True)
@@ -376,16 +379,20 @@ class simpleModelPreviewer(object):
         self.adjust_camera()
 
     def config_model_material(self, *args):
-        # must select geometery to assigne the material
+        # must select geometery to assign the material
         if not cmds.ls(sl=True):
             print("Please select geometry to assign material")
             return
-
+        assignable = cmds.filterExpand(sm=(10, 12, 34, 38, 68, 70, 72))
+        if not assignable:
+            print("Selected objects maybe not material assignable.")
         self.currentMaterial = cmds.optionMenu(self.materialOption, query=True, value=True)
-        for i in cmds.ls(sl=True):
+        for i in assignable:
             cmds.select(i)
-
-            cmds.sets(i, e=True, forceElement=self.currentMaterial + 'SG')
+            try:
+                cmds.sets(i, e=True, forceElement=self.currentMaterial + 'SG')
+            except:
+                print("Cannot assign material to %s" % str(i))
 
     def config_output_path(self, *args):
         self.output_path_dialog = cmds.fileDialog2(dir=os.path.dirname(self.inputModelFilename), dialogStyle=2, fm=3)
@@ -408,7 +415,6 @@ class simpleModelPreviewer(object):
             self.outputFormatID = 19
         else:
             print ("Using unsupported file format")
-
 
     def on_start_frame_change(self, *arg):
         self.startFrame = cmds.intField(self.startFrameField, query=True, value=True)
@@ -449,12 +455,11 @@ class simpleModelPreviewer(object):
         # Set output format
         cmds.setAttr("defaultRenderGlobals.imageFormat", self.outputFormatID)
 
-        # Set output file path
+        # Set output file path, as a better practice, it shouldn't be set to places other than the project_path/images
         # cmds.workspace(fr=["images", self.renderOutputFilePath])
         # cmds.workspace(u=True)
         # cmds.workspace(s=True)
         # cmds.file(s=True)
-
 
         cmds.setAttr("defaultRenderGlobals.outFormatControl", 0)
         cmds.setAttr("defaultRenderGlobals.animation", 1)
@@ -465,8 +470,6 @@ class simpleModelPreviewer(object):
         # Set start and end frame
         cmds.setAttr("defaultRenderGlobals.startFrame", self.startFrame)
         cmds.setAttr("defaultRenderGlobals.endFrame", self.endFrame)
-
-
 
         # Set resolution
         cmds.select("defaultRenderGlobals")
