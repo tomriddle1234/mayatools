@@ -490,7 +490,7 @@ class simpleModelPreviewer(object):
         # render! somehow cmds.batchRender() refuse to work
         print("Start Batch Rendering.")
         maya.mel.eval("mayaBatchRender();")
-        print("Batch Rendering in SMP is done.")
+        print("Batch Rendering in SMP is submitted, please check maya output for rendering progress.")
 
         # change workspace back
         # cmds.workspace(fr=[self.renderOutputFilePath, "images"])
