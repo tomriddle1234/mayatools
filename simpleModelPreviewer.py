@@ -360,7 +360,7 @@ class simpleModelPreviewer(object):
         cmds.move(0, 0, 0, str("SMP_Camera" + ".scalePivot"), str("SMP_Camera" + ".rotatePivot"), a=True)
         #create an expression for camera motion
         angleStepPerFrame = str(360.0 / self.totalFramenumber)
-        expr = "SMP_Camera.rotateY=(time-1) * " + angleStepPerFrame
+        expr = "SMP_Camera.rotateY=(frame-1) * " + angleStepPerFrame
         self.camera_motion_expression = cmds.expression(n="SMP_Camera_Motion_Expression",
                                                         s=expr)
         # adjust play bar
